@@ -108,7 +108,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
 .entrega-ok{color:var(--green)}.entrega-urgente{color:var(--red)}.entrega-hoje{color:var(--orange)}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;
   font-size:0.68rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;white-space:nowrap}
-.b-pendente{background:#FFF3E0;color:#E07B39}.b-confirmado{background:#E8F5E9;color:#2D6A4F}
+.b-pendente_aprovacao{background:#FFF3E0;color:#E07B39}.b-aprovado{background:#E8F5E9;color:#2D6A4F}.b-confirmado{background:#E0F2F1;color:#00695C}
 .b-separado{background:#E3F2FD;color:#2B6CB0}.b-enviado{background:#F3E5F5;color:#6A1B9A}
 .b-rejeitado{background:#FFEBEE;color:#C1121F}
 .card-actions{display:flex;gap:6px;justify-content:flex-end}
@@ -188,6 +188,46 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
   .card-data,.card-entrega{display:none}
   .painel-main{padding:16px}
 }
+
+/* ── MOBILE RESPONSIVE ─────────────────────────────────── */
+@media (max-width: 768px) {
+  .painel-header { padding: 0 16px; height: 56px; }
+  .header-logo { height: 28px; }
+  .header-title { display: none; }
+  .header-user { font-size: 0.7rem; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .stats-bar { overflow-x: auto; padding: 0 12px; }
+  .stat-item { padding: 12px 16px; }
+  .stat-value { font-size: 1.4rem; }
+  .stat-label { font-size: 0.6rem; }
+
+  .painel-main { padding: 16px 12px; }
+  .main-tabs { overflow-x: auto; }
+  .main-tab { padding: 10px 14px; font-size: 0.72rem; white-space: nowrap; }
+
+  .filters-bar { gap: 8px; }
+  .f-select, .f-input { font-size: 0.78rem; padding: 8px 10px; }
+
+  .card-header { grid-template-columns: 1fr auto !important; gap: 8px; padding: 12px 14px; }
+  .card-num { font-size: 0.7rem; }
+  .card-loja { font-size: 0.85rem; }
+  .card-data, .card-entrega { display: none; }
+  .card-actions { flex-wrap: wrap; gap: 4px; }
+  .btn-sm { padding: 4px 8px; font-size: 0.65rem; }
+
+  .detail-grid { grid-template-columns: 1fr; }
+
+  .modal { padding: 24px 18px; margin: 16px; }
+
+  .login-card { padding: 36px 24px; margin: 16px; }
+  .login-logo { height: 44px; }
+}
+
+@media (max-width: 480px) {
+  .stat-item { padding: 10px 12px; }
+  .stat-value { font-size: 1.2rem; }
+}
+
 </style>
 </head>
 <body>
@@ -240,7 +280,8 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
       <div class="filters-bar">
         <select class="f-select" id="fStatus" onchange="filtrar()">
           <option value="">Todos os status</option>
-          <option value="pendente">Pendente</option>
+            <option value="pendente_aprovacao">Aguard. Aprovação</option>
+          <option value="aprovado">Aprovado</option>
           <option value="confirmado">Confirmado</option>
           <option value="separado">Em Separação</option>
           <option value="enviado">Enviado</option>
@@ -308,11 +349,13 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
     <div class="modal-sub" id="mStatusSub"></div>
     <label class="m-label">Novo status</label>
     <select class="m-select" id="mNovoStatus">
-      <option value="pendente">⏳ Pendente</option>
+      <option value="pendente_aprovacao">🕐 Aguard. Aprovação</option>
+      <option value="aprovado">📋 Aprovado - Ag. Fábrica</option>
       <option value="confirmado">✅ Confirmado</option>
       <option value="separado">📦 Em Separação</option>
       <option value="enviado">🚚 Enviado</option>
       <option value="rejeitado">❌ Rejeitado</option>
+      <option value="cancelado">🚫 Cancelado</option>
     </select>
     <div class="modal-actions">
       <button class="btn-mcancel" onclick="fecharModal('modalStatus')">Cancelar</button>
