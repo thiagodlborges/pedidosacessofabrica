@@ -367,7 +367,7 @@ async function fazerLogin() {
 
   // Verifica se é usuário da fábrica
   const { data: perfil } = await sb.from('perfis').select('*').eq('id', data.user.id).single();
-  if (!perfil || perfil.tipo !== 'fabrica') {
+  if (!perfil || !['fabrica','master'].includes(perfil.tipo)) {
     await sb.auth.signOut();
     document.getElementById('loginError').textContent = 'Acesso restrito à equipe da fábrica.';
     document.getElementById('loginError').classList.add('show');
@@ -395,7 +395,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const { data } = await sb.auth.getSession();
   if (data.session) {
     const { data: perfil } = await sb.from('perfis').select('*').eq('id', data.session.user.id).single();
-    if (perfil && perfil.tipo === 'fabrica') {
+    if (perfil && ['fabrica','master'].includes(perfil.tipo)) {
       usuarioAtual = { ...data.session.user, nome: perfil.nome };
       entrarNoPainel();
     }
@@ -631,7 +631,7 @@ async function salvarStatus() {
 
 // ── EQUIPE ────────────────────────────────────────────────
 async function carregarEquipe() {
-  const { data } = await sb.from('perfis').select('*').eq('tipo','fabrica').order('nome');
+  const { data } = await sb.from('perfis').select('*').in('tipo',['fabrica','master']).order('nome');
   const grid = document.getElementById('equipeGrid');
   if (!data||!data.length) {
     grid.innerHTML = '<div class="empty"><div class="empty-title">Nenhum usuário cadastrado</div></div>';
