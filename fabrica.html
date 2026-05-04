@@ -324,7 +324,6 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
       <div class="filters-bar">
         <select class="f-select" id="fStatus" onchange="filtrar()">
           <option value="">Todos os status</option>
-            <option value="pendente_aprovacao">Aguard. Aprovação</option>
           <option value="aprovado">Aprovado</option>
           <option value="confirmado">Confirmado</option>
           <option value="separado">Em Separação</option>
@@ -393,7 +392,6 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
     <div class="modal-sub" id="mStatusSub"></div>
     <label class="m-label">Novo status</label>
     <select class="m-select" id="mNovoStatus">
-      <option value="pendente_aprovacao">🕐 Aguard. Aprovação</option>
       <option value="aprovado">📋 Aprovado - Ag. Fábrica</option>
       <option value="confirmado">✅ Confirmado</option>
       <option value="separado">📦 Em Separação</option>
@@ -615,9 +613,10 @@ function setTab(tab) {
 async function carregarPedidos() {
   document.getElementById('pedidosContainer').innerHTML = '<div class="loading">Carregando pedidos...</div>';
 
-  // Carrega pedidos do Supabase
+  // Carrega pedidos do Supabase — apenas os aprovados pelo master em diante
   const { data: pedidos, error } = await sb.from('pedidos')
     .select('*, pedido_itens(*)')
+    .not('status', 'eq', 'pendente_aprovacao')
     .order('data_entrega_prevista', { ascending: true });
 
   // Carrega notificações
@@ -737,10 +736,11 @@ function renderDetalhe(p) {
       ${notifs.map(n => {
         const tipos = {confirmacao:'✅ Confirmação',rejeicao:'❌ Rejeição',alteracao_data:'📅 Alteração de data',substituicao:'🔄 Substituição',mensagem:'💬 Mensagem',resposta:'↩️ Resposta da loja'};
         const respBadge = n.status_resposta ? `<span class="msg-resposta-badge resp-${n.status_resposta}">${n.status_resposta}</span>` : '';
+        const remetente = n.de === 'fabrica' ? 'Fábrica' : n.de === 'master' ? 'Gestão' : 'Loja';
         const extra = n.nova_data ? `<br><small>Nova data: ${new Date(n.nova_data+'T12:00:00').toLocaleDateString('pt-BR')}</small>` : '';
         const extra2 = n.produto_substituto ? `<br><small>${n.produto_original} → ${n.produto_substituto}</small>` : '';
         return `<div class="msg msg-${n.de}">
-          <div class="msg-meta">${n.de==='fabrica'?'Fábrica':'Loja'} <span class="msg-tipo">${tipos[n.tipo]||n.tipo}</span>${respBadge} · ${new Date(n.criado_em).toLocaleDateString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+          <div class="msg-meta">${remetente} <span class="msg-tipo">${tipos[n.tipo]||n.tipo}</span>${respBadge} · ${new Date(n.criado_em).toLocaleDateString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
           ${n.mensagem}${extra}${extra2}
         </div>`;
       }).join('')}
