@@ -680,7 +680,11 @@ function renderPedidos(lista) {
     return `
     <div class="pedido-card" id="card-${p.id}">
       <div class="card-header" onclick="toggleCard(${p.id})">
-        <div><div class="card-num">${p.numero_pedido||'#'+p.id}</div><div class="card-loja">${p.loja}</div></div>
+        <div>
+            <div class="card-num">${p.numero_pedido||'#'+p.id}</div>
+            <div class="card-loja">${p.loja}</div>
+            ${p.aprovado_por ? `<div style="font-size:0.65rem;color:var(--text-light);margin-top:2px">✓ ${p.aprovado_por}</div>` : ''}
+          </div>
         <div><div style="font-size:0.65rem;color:var(--text-light);text-transform:uppercase;margin-bottom:2px">Pedido</div><div class="card-data">${pedidoFmt}</div></div>
         <div><div style="font-size:0.65rem;color:var(--text-light);text-transform:uppercase;margin-bottom:2px">Entrega</div><div class="card-entrega ${urg.cls}">${dataFmt} ${urg.icon}</div></div>
         <div><span class="badge b-${p.status||'pendente'}">${statusLabel}</span></div>
