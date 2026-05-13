@@ -617,7 +617,7 @@ async function carregarPedidos() {
   const { data: pedidos, error } = await sb.from('pedidos')
     .select('*, pedido_itens(*)')
     .not('status', 'eq', 'pendente_aprovacao')
-    .order('data_entrega_prevista', { ascending: true });
+    .order('data_entrega_prevista', { ascending: false });
 
   // Carrega notificações
   const { data: notifs } = await sb.from('notificacoes').select('*').order('criado_em', { ascending: true });
