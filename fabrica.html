@@ -108,7 +108,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
 .entrega-ok{color:var(--green)}.entrega-urgente{color:var(--red)}.entrega-hoje{color:var(--orange)}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;
   font-size:0.68rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;white-space:nowrap}
-.b-pendente_aprovacao{background:#FFF3E0;color:#E07B39}.b-aprovado{background:#E8F5E9;color:#2D6A4F}.b-confirmado{background:#E0F2F1;color:#00695C}
+.b-pendente_aprovacao{background:#FFF8E1;color:#F57F17;border:1px solid #FFE082}.b-aprovado{background:#E8F5E9;color:#2D6A4F}.b-confirmado{background:#E0F2F1;color:#00695C}
 .b-separado{background:#E3F2FD;color:#2B6CB0}.b-enviado{background:#F3E5F5;color:#6A1B9A}
 .b-rejeitado{background:#FFEBEE;color:#C1121F}
 .card-actions{display:flex;gap:6px;justify-content:flex-end}
@@ -306,6 +306,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
 
   <div class="stats-bar">
     <div class="stat-item"><div class="stat-value" id="stTotal">—</div><div class="stat-label">Total</div></div>
+    <div class="stat-item"><div class="stat-value" id="stAgAprov" style="color:#F57F17">—</div><div class="stat-label">Ag. Aprovação</div></div>
     <div class="stat-item"><div class="stat-value" id="stPendente" style="color:var(--orange)">—</div><div class="stat-label">Pendentes</div></div>
     <div class="stat-item"><div class="stat-value" id="stConfirmado" style="color:var(--green)">—</div><div class="stat-label">Confirmados</div></div>
     <div class="stat-item"><div class="stat-value" id="stSeparado" style="color:var(--blue)">—</div><div class="stat-label">Em Separação</div></div>
@@ -325,6 +326,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
       <div class="filters-bar">
         <select class="f-select" id="fStatus" onchange="filtrar()">
           <option value="">Todos os status</option>
+          <option value="pendente_aprovacao">⏳ Ag. Aprovação</option>
           <option value="aprovado">Aprovado</option>
           <option value="confirmado">Confirmado</option>
           <option value="separado">Em Separação</option>
@@ -355,13 +357,22 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
     <!-- CATÁLOGO TAB -->
     <div id="tabCatalogo" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--bordo)">Sabores de Gelato</div>
-        <button class="btn-refresh" onclick="abrirModalSabor()">+ Novo Sabor</button>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--bordo)">Catálogo de Produtos</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="filtroCatCatalogo" class="f-select" onchange="carregarCatalogo()" style="font-size:0.8rem;padding:7px 12px">
+            <option value="">Todas as categorias</option>
+            <option value="Gelato">🍦 Gelatos</option>
+            <option value="Pote">🥡 Potes</option>
+            <option value="Confeitaria">🎂 Confeitaria</option>
+            <option value="Insumo">📦 Insumos</option>
+          </select>
+          <button class="btn-refresh" onclick="abrirModalProduto()">+ Novo Produto</button>
+        </div>
       </div>
       <div style="font-size:0.8rem;color:var(--text-light);margin-bottom:18px;background:var(--creme);border:1px solid var(--creme-dark);border-radius:8px;padding:12px 16px;line-height:1.6">
-        ℹ️ Sabores <strong>ativos</strong> aparecem no formulário de pedidos das lojas. Desativar um sabor não apaga o histórico de pedidos anteriores.
+        ℹ️ Produtos <strong>ativos</strong> aparecem no formulário de pedidos das lojas. Desativar não apaga o histórico de pedidos anteriores.
       </div>
-      <div id="catalogoGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+      <div id="catalogoGrid">
         <div class="loading">Carregando catálogo...</div>
       </div>
     </div>
@@ -439,15 +450,22 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
   </div>
 </div>
 
-<!-- MODAL NOVO SABOR -->
-<div class="modal-overlay" id="modalSabor">
+<!-- MODAL PRODUTO (antigo MODAL SABOR) -->
+<div class="modal-overlay" id="modalProduto">
   <div class="modal">
-    <div class="modal-title" id="modalSaborTitulo">Novo Sabor</div>
-    <label class="m-label">Nome do sabor</label>
-    <input type="text" class="m-input" id="inputNomeSabor" placeholder="Ex: Pistache, Tiramissù...">
+    <div class="modal-title" id="modalProdutoTitulo">Novo Produto</div>
+    <label class="m-label">Categoria</label>
+    <select class="m-select" id="inputCategoriaProduto">
+      <option value="Gelato">🍦 Gelato</option>
+      <option value="Pote">🥡 Pote</option>
+      <option value="Confeitaria">🎂 Confeitaria</option>
+      <option value="Insumo">📦 Insumo</option>
+    </select>
+    <label class="m-label">Nome do produto</label>
+    <input type="text" class="m-input" id="inputNomeProduto" placeholder="Ex: Pistache, Brownie, Copinho P...">
     <div class="modal-actions">
-      <button class="btn-mcancel" onclick="fecharModal('modalSabor')">Cancelar</button>
-      <button class="btn-msave" id="btnSalvarSabor" onclick="salvarSabor()">Salvar</button>
+      <button class="btn-mcancel" onclick="fecharModal('modalProduto')">Cancelar</button>
+      <button class="btn-msave" id="btnSalvarProduto" onclick="salvarProduto()">Salvar</button>
     </div>
   </div>
 </div>
@@ -648,7 +666,6 @@ async function carregarPedidos() {
   // Carrega pedidos do Supabase — apenas os aprovados pelo master em diante
   const { data: pedidos, error } = await sb.from('pedidos')
     .select('*, pedido_itens(*)')
-    .not('status', 'eq', 'pendente_aprovacao')
     .order('data_entrega_prevista', { ascending: true });
 
   // Carrega notificações
@@ -675,6 +692,7 @@ function popularFiltroLojas() {
 function atualizarStats() {
   const hoje = new Date().toISOString().split('T')[0];
   document.getElementById('stTotal').textContent = todosPedidos.length;
+  document.getElementById('stAgAprov').textContent = todosPedidos.filter(p=>p.status==='pendente_aprovacao').length;
   document.getElementById('stPendente').textContent = todosPedidos.filter(p=>p.status==='pendente').length;
   document.getElementById('stConfirmado').textContent = todosPedidos.filter(p=>p.status==='confirmado').length;
   document.getElementById('stSeparado').textContent = todosPedidos.filter(p=>p.status==='separado').length;
@@ -706,7 +724,7 @@ function renderPedidos(lista) {
     const urg = urgencia(p.data_entrega_prevista);
     const dataFmt = p.data_entrega_prevista ? new Date(p.data_entrega_prevista+'T12:00:00').toLocaleDateString('pt-BR') : '-';
     const pedidoFmt = p.data_pedido ? new Date(p.data_pedido+'T12:00:00').toLocaleDateString('pt-BR') : '-';
-    const statusLabel = {pendente:'⏳ Pendente',confirmado:'✅ Confirmado',separado:'📦 Separação',enviado:'🚚 Enviado',rejeitado:'❌ Rejeitado'}[p.status]||p.status;
+    const statusLabel = {pendente_aprovacao:'🕐 Ag. Aprovação',pendente:'⏳ Pendente',confirmado:'✅ Confirmado',separado:'📦 Separação',enviado:'🚚 Enviado',rejeitado:'❌ Rejeitado'}[p.status]||p.status;
     const notifPend = (p.notificacoes||[]).filter(n=>n.status_resposta==='pendente'&&n.de==='loja').length;
 
     return `
@@ -722,9 +740,11 @@ function renderPedidos(lista) {
         <div><span class="badge b-${p.status||'pendente'}">${statusLabel}</span></div>
         <div style="font-size:0.8rem;color:var(--text-light)">${(p.itens||[]).length} itens${notifPend?` <span style="color:var(--orange);font-weight:600">· ${notifPend} resp.</span>`:''}</div>
         <div class="card-actions" onclick="event.stopPropagation()">
-          <button class="btn-sm btn-confirmar" onclick="abrirStatus(${p.id})">Status</button>
+          ${p.status === 'pendente_aprovacao'
+            ? `<span style="font-size:0.7rem;color:var(--orange);font-style:italic">Aguardando aprovação do gestor</span>`
+            : `<button class="btn-sm btn-confirmar" onclick="abrirStatus(${p.id})">Status</button>
           <button class="btn-sm btn-notif" onclick="abrirNotif(${p.id})">Notif.</button>
-          <button class="btn-sm btn-pdf-s" onclick="gerarPDF(${p.id})">PDF</button>
+          <button class="btn-sm btn-pdf-s" onclick="gerarPDF(${p.id})">PDF</button>`}
         </div>
       </div>
       <div class="card-detail" id="detail-${p.id}">
@@ -952,125 +972,123 @@ function fecharModal(id) { document.getElementById(id).classList.remove('show');
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)this.classList.remove('show')}));
 
 // ── CATÁLOGO DE GELATOS ───────────────────────────────────
-let saborEditandoId = null;
+let produtoEditandoId = null;
+const CAT_ICONS = {Gelato:'🍦',Pote:'🥡',Confeitaria:'🎂',Insumo:'📦'};
+const CAT_LABELS = {Gelato:'Gelatos',Pote:'Potes',Confeitaria:'Confeitaria',Insumo:'Insumos'};
 
 async function carregarCatalogo() {
   const grid = document.getElementById('catalogoGrid');
   grid.innerHTML = '<div class="loading">Carregando catálogo...</div>';
+  const filtrocat = document.getElementById('filtroCatCatalogo')?.value || '';
+  let q = sb.from('catalogo_produtos').select('*').order('categoria').order('ordem');
+  if (filtrocat) q = q.eq('categoria', filtrocat);
+  const { data, error } = await q;
+  if (error || !data) { grid.innerHTML = '<div class="empty">Erro ao carregar catálogo.</div>'; return; }
+  if (!data.length) { grid.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-title">Nenhum produto cadastrado</div></div>'; return; }
 
-  const { data, error } = await sb.from('catalogo_gelatos')
-    .select('*')
-    .order('ordem', { ascending: true });
+  const grupos = {};
+  data.forEach(p => { if (!grupos[p.categoria]) grupos[p.categoria] = []; grupos[p.categoria].push(p); });
 
-  if (error || !data) {
-    grid.innerHTML = '<div class="empty">Erro ao carregar catálogo.</div>';
-    return;
-  }
-
-  if (!data.length) {
-    grid.innerHTML = '<div class="empty"><div class="empty-icon">🍦</div><div class="empty-title">Nenhum sabor cadastrado</div></div>';
-    return;
-  }
-
-  grid.innerHTML = '';
-  data.forEach(sabor => {
-    const card = document.createElement('div');
-    card.style.cssText = `
-      background:var(--white);border:1.5px solid ${sabor.ativo ? 'var(--creme-dark)' : '#e0c8c8'};
-      border-radius:10px;padding:14px 16px;display:flex;align-items:center;
-      justify-content:space-between;gap:10px;opacity:${sabor.ativo ? '1' : '0.6'};
-      transition:box-shadow 0.2s;
-    `;
-    card.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-        <span style="font-size:1.2rem">${sabor.ativo ? '🍦' : '🚫'}</span>
-        <span style="font-weight:500;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sabor.nome}</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <span style="font-size:0.68rem;font-weight:600;padding:2px 8px;border-radius:20px;
-          background:${sabor.ativo ? 'rgba(74,124,89,0.12)' : 'rgba(180,60,60,0.1)'};
-          color:${sabor.ativo ? 'var(--green)' : 'var(--red)'}">
-          ${sabor.ativo ? 'ATIVO' : 'INATIVO'}
+  let html = '';
+  ['Gelato','Pote','Confeitaria','Insumo'].forEach(cat => {
+    if (!grupos[cat]) return;
+    const icon = CAT_ICONS[cat]||'📦', label = CAT_LABELS[cat]||cat;
+    html += `<div style="margin-bottom:28px">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:1.15rem;color:var(--bordo);
+        margin-bottom:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--creme-dark);padding-bottom:8px">
+        <span>${icon}</span><span>${label}</span>
+        <span style="font-size:0.72rem;color:var(--text-light);font-family:'Jost',sans-serif;font-weight:400">
+          (${grupos[cat].filter(p=>p.ativo).length} ativos / ${grupos[cat].length} total)
         </span>
-        <button onclick="editarSabor('${sabor.id}','${sabor.nome.replace(/'/g,"\\'")}','${sabor.ordem}')"
-          style="padding:4px 9px;border-radius:6px;border:1.5px solid var(--creme-dark);background:none;
-          font-size:0.7rem;cursor:pointer;color:var(--text-light);transition:all 0.15s"
-          onmouseover="this.style.borderColor='var(--bordo)';this.style.color='var(--bordo)'"
-          onmouseout="this.style.borderColor='var(--creme-dark)';this.style.color='var(--text-light)'">
-          ✏️ Editar
-        </button>
-        <button onclick="toggleSabor('${sabor.id}',${sabor.ativo})"
-          style="padding:4px 9px;border-radius:6px;border:1.5px solid ${sabor.ativo ? '#c0392b' : '#27ae60'};
-          background:none;font-size:0.7rem;cursor:pointer;color:${sabor.ativo ? 'var(--red)' : 'var(--green)'};transition:all 0.15s">
-          ${sabor.ativo ? '🚫 Desativar' : '✅ Ativar'}
-        </button>
       </div>
-    `;
-    grid.appendChild(card);
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
+        ${grupos[cat].map(prod => `
+          <div style="background:var(--white);border:1.5px solid ${prod.ativo?'var(--creme-dark)':'#e0c8c8'};
+            border-radius:10px;padding:12px 14px;display:flex;align-items:center;
+            justify-content:space-between;gap:8px;opacity:${prod.ativo?'1':'0.55'}">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+              <span>${prod.ativo?icon:'🚫'}</span>
+              <span style="font-weight:500;font-size:0.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${prod.nome}">${prod.nome}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+              <span style="font-size:0.63rem;font-weight:600;padding:2px 7px;border-radius:20px;
+                background:${prod.ativo?'rgba(74,124,89,0.12)':'rgba(180,60,60,0.1)'};
+                color:${prod.ativo?'var(--green)':'var(--red)'}">${prod.ativo?'ATIVO':'INATIVO'}</span>
+              <button onclick="editarProduto('${prod.id}','${prod.nome.replace(/'/g,"\'")}','${prod.categoria}')"
+                style="padding:3px 8px;border-radius:6px;border:1.5px solid var(--creme-dark);background:none;font-size:0.68rem;cursor:pointer;color:var(--text-light)"
+                onmouseover="this.style.borderColor='var(--bordo)';this.style.color='var(--bordo)'"
+                onmouseout="this.style.borderColor='var(--creme-dark)';this.style.color='var(--text-light)'">✏️ Editar</button>
+              <button onclick="toggleProduto('${prod.id}',${prod.ativo})"
+                style="padding:3px 8px;border-radius:6px;border:1.5px solid ${prod.ativo?'#c0392b':'#27ae60'};
+                background:none;font-size:0.68rem;cursor:pointer;color:${prod.ativo?'var(--red)':'var(--green)'}">
+                ${prod.ativo?'🚫 Desativar':'✅ Ativar'}</button>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
   });
+  grid.innerHTML = html;
 }
 
-async function toggleSabor(id, ativoAtual) {
-  const novoStatus = !ativoAtual;
-  const acao = novoStatus ? 'ativar' : 'desativar';
-  if (!confirm(`Deseja ${acao} este sabor?\n\nOs pedidos já realizados não serão afetados.`)) return;
-
-  const { error } = await sb.from('catalogo_gelatos')
-    .update({ ativo: novoStatus })
-    .eq('id', id);
-
-  if (error) { alert('Erro ao atualizar sabor.'); return; }
+async function toggleProduto(id, ativoAtual) {
+  if (!confirm(`Deseja ${ativoAtual?'desativar':'ativar'} este produto?\n\nOs pedidos já realizados não serão afetados.`)) return;
+  const { error } = await sb.from('catalogo_produtos').update({ ativo: !ativoAtual }).eq('id', id);
+  if (error) { alert('Erro ao atualizar produto.'); return; }
+  // sync gelatos table
+  await sb.from('catalogo_gelatos').update({ ativo: !ativoAtual }).eq('id', id);
   carregarCatalogo();
 }
 
-function abrirModalSabor() {
-  saborEditandoId = null;
-  document.getElementById('modalSaborTitulo').textContent = 'Novo Sabor';
-  document.getElementById('inputNomeSabor').value = '';
-  document.getElementById('btnSalvarSabor').textContent = 'Adicionar';
-  document.getElementById('modalSabor').classList.add('show');
-  setTimeout(() => document.getElementById('inputNomeSabor').focus(), 60);
+function abrirModalProduto() {
+  produtoEditandoId = null;
+  document.getElementById('modalProdutoTitulo').textContent = 'Novo Produto';
+  document.getElementById('inputNomeProduto').value = '';
+  document.getElementById('inputCategoriaProduto').value = 'Gelato';
+  document.getElementById('btnSalvarProduto').textContent = 'Adicionar';
+  document.getElementById('modalProduto').classList.add('show');
+  setTimeout(() => document.getElementById('inputNomeProduto').focus(), 60);
 }
 
-function editarSabor(id, nome, ordem) {
-  saborEditandoId = id;
-  document.getElementById('modalSaborTitulo').textContent = 'Editar Sabor';
-  document.getElementById('inputNomeSabor').value = nome;
-  document.getElementById('btnSalvarSabor').textContent = 'Salvar';
-  document.getElementById('modalSabor').classList.add('show');
-  setTimeout(() => document.getElementById('inputNomeSabor').focus(), 60);
+function abrirModalSabor() { abrirModalProduto(); }
+
+function editarProduto(id, nome, categoria) {
+  produtoEditandoId = id;
+  document.getElementById('modalProdutoTitulo').textContent = 'Editar Produto';
+  document.getElementById('inputNomeProduto').value = nome;
+  document.getElementById('inputCategoriaProduto').value = categoria;
+  document.getElementById('btnSalvarProduto').textContent = 'Salvar';
+  document.getElementById('modalProduto').classList.add('show');
+  setTimeout(() => document.getElementById('inputNomeProduto').focus(), 60);
 }
 
-async function salvarSabor() {
-  const nome = document.getElementById('inputNomeSabor').value.trim();
-  if (!nome) { alert('Informe o nome do sabor.'); return; }
-
-  const btn = document.getElementById('btnSalvarSabor');
+async function salvarProduto() {
+  const nome = document.getElementById('inputNomeProduto').value.trim();
+  const categoria = document.getElementById('inputCategoriaProduto').value;
+  if (!nome) { alert('Informe o nome do produto.'); return; }
+  const btn = document.getElementById('btnSalvarProduto');
   btn.disabled = true; btn.textContent = 'Salvando...';
-
   let error;
-  if (saborEditandoId) {
-    ({ error } = await sb.from('catalogo_gelatos')
-      .update({ nome })
-      .eq('id', saborEditandoId));
+  if (produtoEditandoId) {
+    ({ error } = await sb.from('catalogo_produtos').update({ nome, categoria }).eq('id', produtoEditandoId));
+    if (!error && categoria === 'Gelato') await sb.from('catalogo_gelatos').update({ nome }).eq('id', produtoEditandoId);
   } else {
-    // Descobrir maior ordem atual para inserir no final
-    const { data: last } = await sb.from('catalogo_gelatos')
-      .select('ordem').order('ordem', { ascending: false }).limit(1);
+    const { data: last } = await sb.from('catalogo_produtos').select('ordem').eq('categoria', categoria).order('ordem', { ascending: false }).limit(1);
     const novaOrdem = last?.length ? (last[0].ordem + 1) : 1;
-    ({ error } = await sb.from('catalogo_gelatos')
-      .insert({ nome, ativo: true, ordem: novaOrdem }));
+    const { data: ins, error: e2 } = await sb.from('catalogo_produtos').insert({ nome, categoria, ativo: true, ordem: novaOrdem }).select().single();
+    error = e2;
+    if (!e2 && categoria === 'Gelato') {
+      const { data: lastG } = await sb.from('catalogo_gelatos').select('ordem').order('ordem', { ascending: false }).limit(1);
+      await sb.from('catalogo_gelatos').insert({ id: ins.id, nome, ativo: true, ordem: lastG?.length ? (lastG[0].ordem+1) : 1 });
+    }
   }
-
-  btn.disabled = false; btn.textContent = saborEditandoId ? 'Salvar' : 'Adicionar';
-
-  if (error) { alert('Erro ao salvar sabor: ' + error.message); return; }
-  fecharModal('modalSabor');
+  btn.disabled = false; btn.textContent = produtoEditandoId ? 'Salvar' : 'Adicionar';
+  if (error) { alert('Erro ao salvar: ' + error.message); return; }
+  fecharModal('modalProduto');
   carregarCatalogo();
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('modalSabor').classList.contains('show')) salvarSabor();
+  if (e.key === 'Enter' && document.getElementById('modalProduto')?.classList.contains('show')) salvarProduto();
 });
 </script>
 </body>
