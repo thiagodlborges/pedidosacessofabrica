@@ -984,6 +984,7 @@ document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click
 
 // ── CATÁLOGO DE GELATOS ───────────────────────────────────
 let produtoEditandoId = null;
+let produtoEditandoNome = null; // nome ANTES da edição (para registrar renomeações)
 const CAT_ICONS = {Gelato:'🍦',Pote:'🥡',Confeitaria:'🎂',Insumo:'📦'};
 const CAT_LABELS = {Gelato:'Gelatos',Pote:'Potes',Confeitaria:'Confeitaria',Insumo:'Insumos'};
 
@@ -1054,6 +1055,7 @@ async function toggleProduto(id, ativoAtual, categoria, nome) {
 
 function abrirModalProduto() {
   produtoEditandoId = null;
+  produtoEditandoNome = null;
   document.getElementById('modalProdutoTitulo').textContent = 'Novo Produto';
   document.getElementById('inputNomeProduto').value = '';
   document.getElementById('inputCategoriaProduto').value = 'Gelato';
@@ -1066,6 +1068,7 @@ function abrirModalSabor() { abrirModalProduto(); }
 
 function editarProduto(id, nome, categoria) {
   produtoEditandoId = id;
+  produtoEditandoNome = nome; // guarda o nome atual para detectar renomeação
   document.getElementById('modalProdutoTitulo').textContent = 'Editar Produto';
   document.getElementById('inputNomeProduto').value = nome;
   document.getElementById('inputCategoriaProduto').value = categoria;
@@ -1082,11 +1085,18 @@ async function salvarProduto() {
   btn.disabled = true; btn.textContent = 'Salvando...';
   let error;
   if (produtoEditandoId) {
+    const nomeAntigo = produtoEditandoNome; // nome antes da edição
     ({ error } = await sb.from('catalogo_produtos').update({ nome, categoria }).eq('id', produtoEditandoId));
-    if (!error && categoria === 'Gelato') {
-      // Get current nome to find record by name (IDs may differ due to migration)
-      const { data: prodAtual } = await sb.from('catalogo_produtos').select('nome').eq('id', produtoEditandoId).single();
-      if (prodAtual) await sb.from('catalogo_gelatos').update({ nome }).eq('nome', prodAtual.nome);
+    if (!error && nomeAntigo && nomeAntigo !== nome) {
+      // Registra a renomeação para que o ranking agrupe o histórico antigo
+      // sob o novo nome (mesmo produto, nome diferente).
+      await sb.from('catalogo_renomeacoes').insert({
+        categoria, nome_antigo: nomeAntigo, nome_novo: nome
+      });
+      // Sincroniza a tabela legada de gelatos pelo NOME ANTIGO (não pelo novo)
+      if (categoria === 'Gelato') {
+        await sb.from('catalogo_gelatos').update({ nome }).eq('nome', nomeAntigo);
+      }
     }
   } else {
     const { data: last } = await sb.from('catalogo_produtos').select('ordem').eq('categoria', categoria).order('ordem', { ascending: false }).limit(1);
