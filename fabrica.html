@@ -990,6 +990,105 @@ let produtoEditandoNome = null; // nome ANTES da edição (para registrar renome
 const CAT_ICONS = {Gelato:'🍦',Pote:'🥡',Confeitaria:'🎂',Insumo:'📦',Uniforme:'👕'};
 const CAT_LABELS = {Gelato:'Gelatos',Pote:'Potes',Confeitaria:'Confeitaria',Insumo:'Insumos',Uniforme:'Uniformes'};
 
+// ── Reordenação do catálogo (arrastar / A–Z / ▲▼) ─────────────
+// A ordem é persistida em catalogo_produtos.ordem (1-based por categoria),
+// que é a coluna lida pela loja (index.html) para ordenar dentro da categoria.
+let catalogoCache = [];   // últimos produtos carregados (para os handlers)
+
+function toastCat(msg, erro) {
+  let t = document.getElementById('toastCat');
+  if (!t) {
+    t = document.createElement('div'); t.id = 'toastCat';
+    t.style.cssText = 'position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:9999;padding:10px 18px;border-radius:8px;font-family:Jost,sans-serif;font-size:0.82rem;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,0.18);transition:opacity .3s;pointer-events:none';
+    document.body.appendChild(t);
+  }
+  t.style.background = erro ? '#b43c3c' : 'var(--bordo, #7a2e3a)';
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = '0'; }, 1800);
+}
+
+function produtosDaCategoria(cat) {
+  return catalogoCache.filter(p => p.categoria === cat)
+    .slice()
+    .sort((a, b) => ((a.ordem ?? 0) - (b.ordem ?? 0)) || a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+async function persistirOrdemCategoria(cat, idsEmOrdem) {
+  const ups = idsEmOrdem.map((id, i) => sb.from('catalogo_produtos').update({ ordem: i + 1 }).eq('id', id));
+  const res = await Promise.all(ups);
+  // reflete a nova ordem no cache local
+  idsEmOrdem.forEach((id, i) => { const p = catalogoCache.find(x => x.id === id); if (p) p.ordem = i + 1; });
+  if (res.find(r => r && r.error)) { toastCat('Erro ao salvar a ordem.', true); return false; }
+  return true;
+}
+
+async function ordenarCategoriaAZ(cat) {
+  const ids = produtosDaCategoria(cat)
+    .slice()
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+    .map(p => p.id);
+  if (!ids.length) return;
+  if (await persistirOrdemCategoria(cat, ids)) { toastCat('Ordenado de A a Z.'); carregarCatalogo(); }
+}
+
+async function moverProduto(cat, id, dir) {
+  const ids = produtosDaCategoria(cat).map(p => p.id);
+  const i = ids.indexOf(id), j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  if (await persistirOrdemCategoria(cat, ids)) carregarCatalogo();
+}
+
+// Arraste via Pointer Events: funciona igual em mouse e toque (ao contrário do
+// drag-and-drop nativo, que não dispara em telas de toque).
+let _arraste = null; // { card, grid }
+
+function ativarDragDrop() {
+  document.querySelectorAll('.cat-grid .drag-handle').forEach(h => {
+    h.addEventListener('pointerdown', e => {
+      if (e.button != null && e.button > 0) return; // ignora botões direito/meio do mouse
+      const card = h.closest('.cat-card');
+      const grid = h.closest('.cat-grid');
+      if (!card || !grid) return;
+      e.preventDefault();
+      _arraste = { card, grid };
+      card.style.opacity = '0.55';
+      card.style.boxShadow = '0 8px 22px rgba(0,0,0,0.18)';
+      card.style.pointerEvents = 'none'; // p/ elementFromPoint enxergar o card de baixo
+      document.body.style.userSelect = 'none';
+      document.addEventListener('pointermove', _arrastarMover);
+      document.addEventListener('pointerup', _arrastarSoltar);
+      document.addEventListener('pointercancel', _arrastarSoltar);
+    });
+  });
+}
+
+function _arrastarMover(e) {
+  if (!_arraste) return;
+  const { card, grid } = _arraste;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const alvo = el && el.closest ? el.closest('.cat-card') : null;
+  if (!alvo || alvo === card || alvo.parentElement !== grid) return;
+  const r = alvo.getBoundingClientRect();
+  const depois = (e.clientY > r.bottom) || (e.clientY >= r.top && e.clientX > r.left + r.width / 2);
+  grid.insertBefore(card, depois ? alvo.nextSibling : alvo);
+}
+
+async function _arrastarSoltar() {
+  document.removeEventListener('pointermove', _arrastarMover);
+  document.removeEventListener('pointerup', _arrastarSoltar);
+  document.removeEventListener('pointercancel', _arrastarSoltar);
+  document.body.style.userSelect = '';
+  if (!_arraste) return;
+  const { card, grid } = _arraste;
+  card.style.opacity = ''; card.style.boxShadow = ''; card.style.pointerEvents = '';
+  _arraste = null;
+  const cat = grid.dataset.cat;
+  const ids = [...grid.querySelectorAll('.cat-card')].map(c => c.dataset.prodid);
+  if (!(await persistirOrdemCategoria(cat, ids))) carregarCatalogo();
+  else toastCat('Ordem atualizada.');
+}
+
 async function carregarCatalogo() {
   const grid = document.getElementById('catalogoGrid');
   grid.innerHTML = '<div class="loading">Carregando catálogo...</div>';
@@ -1014,13 +1113,19 @@ async function carregarCatalogo() {
         <span style="font-size:0.72rem;color:var(--text-light);font-family:'Jost',sans-serif;font-weight:400">
           (${grupos[cat].filter(p=>p.ativo).length} ativos / ${grupos[cat].length} total)
         </span>
+        <button onclick="ordenarCategoriaAZ('${cat}')" title="Ordenar em ordem alfabética"
+          style="margin-left:auto;padding:5px 12px;border-radius:6px;border:1.5px solid var(--creme-dark);background:none;font-size:0.72rem;cursor:pointer;color:var(--text-light);font-family:'Jost',sans-serif;white-space:nowrap"
+          onmouseover="this.style.borderColor='var(--bordo)';this.style.color='var(--bordo)'"
+          onmouseout="this.style.borderColor='var(--creme-dark)';this.style.color='var(--text-light)'">🔤 A–Z</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
+      <div style="font-size:0.68rem;color:var(--text-light);font-family:'Jost',sans-serif;margin:-6px 0 10px;opacity:0.85">↕ Arraste os blocos pela alça <span style="font-size:0.85rem">⠿</span> (ou use ▲▼) para reordenar.</div>
+      <div class="cat-grid" data-cat="${cat}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
         ${grupos[cat].map(prod => `
-          <div style="background:var(--white);border:1.5px solid ${prod.ativo?'var(--creme-dark)':'#e0c8c8'};
+          <div class="cat-card" data-prodid="${prod.id}" data-cat="${cat}" style="background:var(--white);border:1.5px solid ${prod.ativo?'var(--creme-dark)':'#e0c8c8'};
             border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;
             opacity:${prod.ativo?'1':'0.55'}">
             <div style="display:flex;align-items:center;gap:8px">
+              <span class="drag-handle" title="Arraste para reordenar" style="cursor:grab;color:var(--text-light);font-size:1.05rem;flex-shrink:0;user-select:none;touch-action:none;padding:4px 6px;margin:-4px -2px -4px -6px;line-height:1">⠿</span>
               <span style="font-size:1rem;flex-shrink:0">${prod.ativo?icon:'🚫'}</span>
               <span style="font-weight:600;font-size:0.88rem;color:var(--text);line-height:1.3">${prod.nome}</span>
               <span style="margin-left:auto;font-size:0.63rem;font-weight:600;padding:2px 7px;border-radius:20px;flex-shrink:0;
@@ -1028,6 +1133,14 @@ async function carregarCatalogo() {
                 color:${prod.ativo?'var(--green)':'var(--red)'}">${prod.ativo?'ATIVO':'INATIVO'}</span>
             </div>
             <div style="display:flex;gap:6px">
+              <button onclick="moverProduto('${cat}','${prod.id}',-1)" title="Subir"
+                style="width:30px;padding:5px 0;border-radius:6px;border:1.5px solid var(--creme-dark);background:none;font-size:0.7rem;cursor:pointer;color:var(--text-light);flex-shrink:0"
+                onmouseover="this.style.borderColor='var(--bordo)';this.style.color='var(--bordo)'"
+                onmouseout="this.style.borderColor='var(--creme-dark)';this.style.color='var(--text-light)'">▲</button>
+              <button onclick="moverProduto('${cat}','${prod.id}',1)" title="Descer"
+                style="width:30px;padding:5px 0;border-radius:6px;border:1.5px solid var(--creme-dark);background:none;font-size:0.7rem;cursor:pointer;color:var(--text-light);flex-shrink:0"
+                onmouseover="this.style.borderColor='var(--bordo)';this.style.color='var(--bordo)'"
+                onmouseout="this.style.borderColor='var(--creme-dark)';this.style.color='var(--text-light)'">▼</button>
               <button onclick="editarProduto('${prod.id}','${prod.nome.replace(/'/g,"\'")}','${prod.categoria}')"
                 style="flex:1;padding:5px 0;border-radius:6px;border:1.5px solid var(--creme-dark);background:none;font-size:0.72rem;cursor:pointer;color:var(--text-light)"
                 onmouseover="this.style.borderColor='var(--bordo)';this.style.color='var(--bordo)'"
@@ -1042,6 +1155,8 @@ async function carregarCatalogo() {
     </div>`;
   });
   grid.innerHTML = html;
+  catalogoCache = data.slice();
+  ativarDragDrop();
 }
 
 async function toggleProduto(id, ativoAtual, categoria, nome) {
