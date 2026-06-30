@@ -365,6 +365,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
             <option value="Pote">🥡 Potes</option>
             <option value="Confeitaria">🎂 Confeitaria</option>
             <option value="Insumo">📦 Insumos</option>
+            <option value="Uniforme">👕 Uniformes</option>
           </select>
           <button class="btn-refresh" onclick="abrirModalProduto()">+ Novo Produto</button>
         </div>
@@ -460,6 +461,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
       <option value="Pote">🥡 Pote</option>
       <option value="Confeitaria">🎂 Confeitaria</option>
       <option value="Insumo">📦 Insumo</option>
+      <option value="Uniforme">👕 Uniforme</option>
     </select>
     <label class="m-label">Nome do produto</label>
     <input type="text" class="m-input" id="inputNomeProduto" placeholder="Ex: Pistache, Brownie, Copinho P...">
@@ -770,7 +772,7 @@ function toggleCard(id) {
 }
 
 function renderDetalhe(p) {
-  const cats = {'Gelato':'🍦 Gelatos','Pote':'🥡 Potes','Confeitaria':'🎂 Confeitaria','Insumo':'📦 Insumos','Outro':'✏️ Outros'};
+  const cats = {'Gelato':'🍦 Gelatos','Pote':'🥡 Potes','Confeitaria':'🎂 Confeitaria','Insumo':'📦 Insumos','Uniforme':'👕 Uniformes','Outro':'✏️ Outros'};
   const grupos = {};
   (p.itens||[]).forEach(item => {
     const m = (item.observacao||'').match(/^\[(\w+)\]/);
@@ -954,7 +956,7 @@ function gerarPDF(id) {
   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...B);
   doc.text(de.charAt(0).toUpperCase()+de.slice(1),22,y+27);
   y+=36;
-  const cats={'Gelato':'GELATOS','Pote':'POTES FECHADOS','Confeitaria':'CONFEITARIA','Insumo':'INSUMOS & UNIFORMES','Outro':'OUTROS'};
+  const cats={'Gelato':'GELATOS','Pote':'POTES FECHADOS','Confeitaria':'CONFEITARIA','Insumo':'INSUMOS & UNIFORMES','Uniforme':'UNIFORMES','Outro':'OUTROS'};
   const grupos={};
   (p.itens||[]).forEach(item=>{const m=(item.observacao||'').match(/^\[(\w+)\]/);const cat=m?m[1]:'Outro';const nome=(item.observacao||'').replace(/^\[\w+\]\s*/,'');if(!grupos[cat])grupos[cat]=[];grupos[cat].push([nome,item.quantidade+'',item.unidade||'','☐']);});
   Object.entries(cats).forEach(([k,l])=>{if(!grupos[k]||!grupos[k].length)return;doc.setFillColor(...B);doc.roundedRect(14,y,W-28,9,2,2,'F');doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(...CR);doc.text(l,20,y+6.3);y+=11;doc.autoTable({startY:y,margin:{left:14,right:14},head:[['Produto','Qtd.','Unidade','✓']],body:grupos[k],theme:'plain',styles:{font:'helvetica',fontSize:8.5,cellPadding:{top:4,bottom:4,left:4,right:4},textColor:TX,lineColor:[237,228,212],lineWidth:0.3},headStyles:{fillColor:CR,textColor:MA,fontSize:7,fontStyle:'bold',lineWidth:0},columnStyles:{0:{cellWidth:'auto'},1:{cellWidth:16,halign:'center',fontStyle:'bold',textColor:B},2:{cellWidth:22,halign:'center'},3:{cellWidth:18,halign:'center'}},alternateRowStyles:{fillColor:[252,249,245]}});y=doc.lastAutoTable.finalY+7;});
@@ -985,8 +987,8 @@ document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click
 // ── CATÁLOGO DE GELATOS ───────────────────────────────────
 let produtoEditandoId = null;
 let produtoEditandoNome = null; // nome ANTES da edição (para registrar renomeações)
-const CAT_ICONS = {Gelato:'🍦',Pote:'🥡',Confeitaria:'🎂',Insumo:'📦'};
-const CAT_LABELS = {Gelato:'Gelatos',Pote:'Potes',Confeitaria:'Confeitaria',Insumo:'Insumos'};
+const CAT_ICONS = {Gelato:'🍦',Pote:'🥡',Confeitaria:'🎂',Insumo:'📦',Uniforme:'👕'};
+const CAT_LABELS = {Gelato:'Gelatos',Pote:'Potes',Confeitaria:'Confeitaria',Insumo:'Insumos',Uniforme:'Uniformes'};
 
 async function carregarCatalogo() {
   const grid = document.getElementById('catalogoGrid');
@@ -1002,7 +1004,7 @@ async function carregarCatalogo() {
   data.forEach(p => { if (!grupos[p.categoria]) grupos[p.categoria] = []; grupos[p.categoria].push(p); });
 
   let html = '';
-  ['Gelato','Pote','Confeitaria','Insumo'].forEach(cat => {
+  ['Gelato','Pote','Confeitaria','Insumo','Uniforme'].forEach(cat => {
     if (!grupos[cat]) return;
     const icon = CAT_ICONS[cat]||'📦', label = CAT_LABELS[cat]||cat;
     html += `<div style="margin-bottom:28px">
