@@ -232,6 +232,9 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
 </head>
 <body>
 
+<!-- Camada de bloqueio: cobre tudo até a checagem de acesso terminar -->
+<div id="carregandoOverlay" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(145deg,#4A1220 0%,#2C0A14 60%,#1A0008 100%);display:flex;align-items:center;justify-content:center;color:#C4A882;font-family:sans-serif;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase">Carregando…</div>
+
 <!-- LOGIN -->
 <div class="login-screen" id="loginScreen" style="display:none">
   <div class="login-card">
@@ -515,6 +518,8 @@ async function fazerLogin() {
 
 async function entrarNoPainel() {
   document.getElementById('loginScreen').style.display = 'none';
+  const ov = document.getElementById('carregandoOverlay');
+  if (ov) ov.remove();
   document.getElementById('painelFabrica').classList.add('show');
   document.getElementById('headerUser').textContent = usuarioAtual.nome || usuarioAtual.email;
   await carregarPedidos();
