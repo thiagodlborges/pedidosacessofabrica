@@ -877,8 +877,14 @@ async function enviarNotificacao() {
 
   // Se for confirmação ou rejeição, atualiza status do pedido
   if (!error) {
-    if (tipo === 'confirmacao') await sb.from('pedidos').update({status:'confirmado'}).eq('id', pedidoAtivo.id);
-    if (tipo === 'rejeicao')    await sb.from('pedidos').update({status:'rejeitado'}).eq('id', pedidoAtivo.id);
+    if (tipo === 'confirmacao') {
+      const { error: errStatus } = await sb.from('pedidos').update({status:'confirmado'}).eq('id', pedidoAtivo.id);
+      if (errStatus) alert('Erro ao confirmar pedido: '+errStatus.message);
+    }
+    if (tipo === 'rejeicao') {
+      const { error: errStatus } = await sb.from('pedidos').update({status:'rejeitado'}).eq('id', pedidoAtivo.id);
+      if (errStatus) alert('Erro ao rejeitar pedido: '+errStatus.message);
+    }
   }
 
   btn.disabled=false; btn.textContent='Enviar';
@@ -897,7 +903,8 @@ function abrirStatus(id) {
 
 async function salvarStatus() {
   const novoStatus = document.getElementById('mNovoStatus').value;
-  await sb.from('pedidos').update({status:novoStatus}).eq('id', pedidoAtivo.id);
+  const { error } = await sb.from('pedidos').update({status:novoStatus}).eq('id', pedidoAtivo.id);
+  if (error) { alert('Erro ao mudar status: '+error.message); return; }
   fecharModal('modalStatus');
   await carregarPedidos();
 }
