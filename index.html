@@ -347,6 +347,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
           Atualizar
         </button>
       </div>
+      <div id="aprovacoesTrocaWrap" style="display:none;margin-bottom:18px"></div>
       <div id="pedidosContainer"><div class="loading">Carregando pedidos...</div></div>
     </div>
 
@@ -403,10 +404,13 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
       <input type="date" class="m-input" id="mNovaData">
     </div>
     <div id="campoProdutos" style="display:none">
-      <label class="m-label">Produto original</label>
-      <input type="text" class="m-input" id="mProdOrig" placeholder="Ex: Pistache">
-      <label class="m-label">Produto substituto sugerido</label>
-      <input type="text" class="m-input" id="mProdSub" placeholder="Ex: Nocciola Crocante">
+      <label class="m-label">Item do pedido a trocar</label>
+      <select class="m-select" id="mItemOrig" onchange="atualizarQtdOriginal()"></select>
+      <label class="m-label">Produto substituto (de Precificação Fábrica)</label>
+      <select class="m-select" id="mProdSub"></select>
+      <label class="m-label">Nova quantidade</label>
+      <input type="number" class="m-input" id="mQtdSub" min="0" step="0.001">
+      <div style="font-size:0.72rem;color:var(--text-light);margin-top:2px">Essa troca só vale depois que o master aprovar. Nada muda no pedido até lá.</div>
     </div>
     <label class="m-label">Mensagem para a loja</label>
     <textarea class="m-textarea" id="mMensagem" placeholder="Escreva sua mensagem..."></textarea>
@@ -516,7 +520,7 @@ async function fazerLogin() {
     btn.disabled = false; btn.textContent = 'Entrar';
     return;
   }
-  usuarioAtual = { ...data.user, nome: perfil.nome };
+  usuarioAtual = { ...data.user, nome: perfil.nome, tipo: perfil.tipo };
   entrarNoPainel();
 }
 
@@ -655,7 +659,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const { data: perfil } = await sb.from('perfis').select('*').eq('id', data.session.user.id).single();
     const { data: acessoOk } = await sb.rpc('tem_acesso', { p_slug: 'pedidos_fabrica' });
     if (perfil && acessoOk) {
-      usuarioAtual = { ...data.session.user, nome: perfil.nome };
+      usuarioAtual = { ...data.session.user, nome: perfil.nome, tipo: perfil.tipo };
       entrarNoPainel();
     } else {
       await sb.auth.signOut();
@@ -699,7 +703,53 @@ async function carregarPedidos() {
 
   atualizarStats();
   popularFiltroLojas();
+  renderAprovacoesTroca();
   filtrar();
+}
+
+// ── APROVAÇÃO DE TROCA DE SABOR (só master) ────────────────
+function renderAprovacoesTroca() {
+  const wrap = document.getElementById('aprovacoesTrocaWrap');
+  if (!wrap) return;
+  if (usuarioAtual?.tipo !== 'master') { wrap.style.display = 'none'; return; }
+
+  const pendentes = [];
+  todosPedidos.forEach(p => {
+    (p.notificacoes||[]).forEach(n => {
+      if (n.tipo === 'substituicao' && n.status_resposta === 'pendente') {
+        pendentes.push({ ...n, pedido: p });
+      }
+    });
+  });
+
+  if (!pendentes.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  wrap.innerHTML = `
+    <div style="background:#FFF3CD;border:1px solid #FFE08A;border-radius:10px;padding:14px 16px">
+      <div style="font-weight:700;color:#7A5B00;margin-bottom:10px">🔄 Trocas de sabor aguardando sua aprovação (${pendentes.length})</div>
+      ${pendentes.map(n => `
+        <div style="background:#fff;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="font-size:0.85rem">
+            <strong>${n.pedido.numero_pedido || '#'+n.pedido.id}</strong> — ${n.pedido.loja}<br>
+            <span style="color:var(--text-light)">${n.produto_original} (${n.quantidade_original}) → <strong>${n.produto_substituto}</strong> (${n.quantidade_substituta})</span><br>
+            <span style="font-size:0.78rem;font-style:italic">${n.mensagem||''}</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn-sm btn-msave" onclick="decidirSubstituicao('${n.id}','aceito')">✅ Aprovar</button>
+            <button class="btn-sm btn-mcancel" onclick="decidirSubstituicao('${n.id}','recusado')">❌ Recusar</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+async function decidirSubstituicao(notifId, decisao) {
+  const msg = decisao === 'aceito'
+    ? 'Aprovar esta troca? O item do pedido vai ser atualizado imediatamente — se o pedido depois for marcado como enviado, o produto NOVO (substituto) é quem sai do estoque.'
+    : 'Recusar esta troca de sabor?';
+  if (!confirm(msg)) return;
+  const { error } = await sb.rpc('fn_decidir_substituicao', { p_notif_id: notifId, p_decisao: decisao });
+  if (error) { alert(error.message); return; }
+  await carregarPedidos();
 }
 
 function popularFiltroLojas() {
@@ -814,7 +864,7 @@ function renderDetalhe(p) {
       <div class="notif-title">💬 Histórico de comunicações</div>
       ${notifs.map(n => {
         const tipos = {confirmacao:'✅ Confirmação',rejeicao:'❌ Rejeição',alteracao_data:'📅 Alteração de data',substituicao:'🔄 Substituição',mensagem:'💬 Mensagem',resposta:'↩️ Resposta da loja'};
-        const respBadge = n.status_resposta ? `<span class="msg-resposta-badge resp-${n.status_resposta}">${n.status_resposta}</span>` : '';
+        const respBadge = n.status_resposta ? `<span class="msg-resposta-badge resp-${n.status_resposta}">${n.status_resposta}${n.tipo==='substituicao' && n.aprovado_por ? ' · '+n.aprovado_por : ''}</span>` : '';
         const remetente = n.de === 'fabrica' ? 'Fábrica' : n.de === 'master' ? 'Gestão' : 'Loja';
         const extra = n.nova_data ? `<br><small>Nova data: ${new Date(n.nova_data+'T12:00:00').toLocaleDateString('pt-BR')}</small>` : '';
         const extra2 = n.produto_substituto ? `<br><small>${n.produto_original} → ${n.produto_substituto}</small>` : '';
@@ -829,17 +879,40 @@ function renderDetalhe(p) {
 }
 
 // ── MODAL NOTIFICAÇÃO ─────────────────────────────────────
-function abrirNotif(id) {
+let _precifCacheNotif = [];
+async function abrirNotif(id) {
   pedidoAtivo = todosPedidos.find(p=>p.id===id);
   if (!pedidoAtivo) return;
   document.getElementById('mNotifTitle').textContent = 'Notificação — ' + pedidoAtivo.loja;
   document.getElementById('mNotifSub').textContent = pedidoAtivo.numero_pedido || '#'+id;
   document.getElementById('mMensagem').value = '';
   document.getElementById('mNovaData').value = '';
-  document.getElementById('mProdOrig').value = '';
-  document.getElementById('mProdSub').value = '';
+  document.getElementById('mQtdSub').value = '';
+
+  // Popula os itens do pedido (só os que têm vínculo com Precificação —
+  // Gelato/Pote/Confeitaria — que é o que a troca sistêmica consegue mover)
+  const selItem = document.getElementById('mItemOrig');
+  const itensTrocaveis = (pedidoAtivo.itens||[]).filter(i => i.precificacao_produto_id);
+  selItem.innerHTML = itensTrocaveis.length
+    ? itensTrocaveis.map(i => `<option value="${i.id}" data-qtd="${i.quantidade}">${(i.observacao||'').replace(/^\[\w+\]\s*/,'')} — ${i.quantidade} ${i.unidade}</option>`).join('')
+    : '<option value="">— Nenhum item trocável neste pedido —</option>';
+
+  if (!_precifCacheNotif.length) {
+    const { data } = await sb.from('precificacao_produtos').select('id,nome,categoria').eq('ativo', true).order('categoria').order('nome');
+    _precifCacheNotif = data || [];
+  }
+  const selSub = document.getElementById('mProdSub');
+  selSub.innerHTML = _precifCacheNotif.map(p => `<option value="${p.id}">${p.nome} (${p.categoria})</option>`).join('');
+
+  atualizarQtdOriginal();
   atualizarCamposModal();
   document.getElementById('modalNotif').classList.add('show');
+}
+
+function atualizarQtdOriginal() {
+  const sel = document.getElementById('mItemOrig');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('mQtdSub').value = opt?.dataset?.qtd || '';
 }
 
 function atualizarCamposModal() {
@@ -850,7 +923,7 @@ function atualizarCamposModal() {
     confirmacao:'Seu pedido foi confirmado e será atendido conforme solicitado.',
     rejeicao:'Infelizmente não será possível atender este pedido.',
     alteracao_data:'Precisamos alterar a data de entrega do seu pedido.',
-    substituicao:'Gostaríamos de sugerir a substituição de um produto.',
+    substituicao:'Gostaríamos de sugerir a substituição de um produto. Aguardando aprovação da gestão.',
     mensagem:''
   };
   if (msgs[tipo]!==undefined && !document.getElementById('mMensagem').value)
@@ -859,11 +932,29 @@ function atualizarCamposModal() {
 
 async function enviarNotificacao() {
   const btn = document.getElementById('btnEnviarNotif');
-  btn.disabled = true; btn.textContent = 'Enviando...';
 
   const tipo = document.getElementById('mTipo').value;
   const mensagem = document.getElementById('mMensagem').value.trim();
-  if (!mensagem) { btn.disabled=false; btn.textContent='Enviar'; return; }
+  if (!mensagem) { return; }
+
+  let itemOrigId = null, itemOrigNome = null, itemOrigQtd = null;
+  let prodSubId = null, prodSubNome = null, qtdSub = null;
+  if (tipo === 'substituicao') {
+    const selItem = document.getElementById('mItemOrig');
+    const optItem = selItem.options[selItem.selectedIndex];
+    itemOrigId = selItem.value ? parseInt(selItem.value) : null;
+    if (!itemOrigId) { alert('Escolha o item do pedido a trocar.'); return; }
+    itemOrigNome = optItem.textContent.split(' — ')[0];
+    itemOrigQtd = parseFloat(optItem.dataset.qtd);
+
+    const selSub = document.getElementById('mProdSub');
+    prodSubId = selSub.value;
+    prodSubNome = selSub.options[selSub.selectedIndex]?.textContent || '';
+    qtdSub = parseFloat(document.getElementById('mQtdSub').value);
+    if (!prodSubId || !qtdSub || qtdSub <= 0) { alert('Escolha o produto substituto e uma quantidade válida.'); return; }
+  }
+
+  btn.disabled = true; btn.textContent = 'Enviando...';
 
   const notif = {
     pedido_id: pedidoAtivo.id,
@@ -874,9 +965,14 @@ async function enviarNotificacao() {
     titulo: {confirmacao:'Pedido Confirmado',rejeicao:'Pedido Rejeitado',alteracao_data:'Alteração de Data',substituicao:'Sugestão de Substituição',mensagem:'Mensagem da Fábrica'}[tipo],
     mensagem,
     nova_data: tipo==='alteracao_data' ? document.getElementById('mNovaData').value||null : null,
-    produto_original: tipo==='substituicao' ? document.getElementById('mProdOrig').value||null : null,
-    produto_substituto: tipo==='substituicao' ? document.getElementById('mProdSub').value||null : null,
-    status_resposta: ['alteracao_data','substituicao'].includes(tipo) ? 'pendente' : null
+    produto_original: tipo==='substituicao' ? itemOrigNome : null,
+    produto_substituto: tipo==='substituicao' ? prodSubNome : null,
+    pedido_item_id: tipo==='substituicao' ? itemOrigId : null,
+    produto_substituto_id: tipo==='substituicao' ? prodSubId : null,
+    quantidade_original: tipo==='substituicao' ? itemOrigQtd : null,
+    quantidade_substituta: tipo==='substituicao' ? qtdSub : null,
+    // substituição agora espera aprovação do MASTER, não mais resposta da loja
+    status_resposta: (tipo==='alteracao_data' || tipo==='substituicao') ? 'pendente' : null
   };
 
   const { error } = await sb.from('notificacoes').insert([notif]);
