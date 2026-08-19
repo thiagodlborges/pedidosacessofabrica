@@ -423,7 +423,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
     <div class="modal-title">Atualizar Status</div>
     <div class="modal-sub" id="mStatusSub"></div>
     <label class="m-label">Novo status</label>
-    <select class="m-select" id="mNovoStatus">
+    <select class="m-select" id="mNovoStatus" onchange="avisoStatusEnviado()">
       <option value="aprovado">📋 Aprovado - Ag. Fábrica</option>
       <option value="confirmado">✅ Confirmado</option>
       <option value="separado">📦 Em Separação</option>
@@ -431,6 +431,9 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
       <option value="rejeitado">❌ Rejeitado</option>
       <option value="cancelado">🚫 Cancelado</option>
     </select>
+    <div id="mAvisoEnviado" style="display:none;margin-top:8px;padding:10px 12px;background:#fff3cd;border:1px solid #ffe08a;border-radius:8px;font-size:0.78rem;color:#7a5b00;line-height:1.4">
+      ⚠️ <strong>Enviado é definitivo</strong> — depois de salvar, esse status não pode mais ser alterado. Nesse momento o estoque de Gelato/Pote/Confeitaria da Fábrica é baixado automaticamente. Se faltar estoque ou algum item não estiver sincronizado com a Precificação, o sistema vai bloquear e explicar o motivo.
+    </div>
     <div class="modal-actions">
       <button class="btn-mcancel" onclick="fecharModal('modalStatus')">Cancelar</button>
       <button class="btn-msave" onclick="salvarStatus()">Salvar</button>
@@ -759,6 +762,9 @@ function renderPedidos(lista) {
         <div class="card-actions" onclick="event.stopPropagation()">
           ${p.status === 'pendente_aprovacao'
             ? `<span style="font-size:0.7rem;color:var(--orange);font-style:italic">Aguardando aprovação do gestor</span>`
+            : p.status === 'enviado'
+            ? `<span style="font-size:0.7rem;color:var(--text-light);font-style:italic">🚚 Enviado — baixa de estoque já feita, status definitivo</span>
+          <button class="btn-sm btn-pdf-s" onclick="gerarPDF(${p.id})">PDF</button>`
             : `<button class="btn-sm btn-confirmar" onclick="abrirStatus(${p.id})">Status</button>
           <button class="btn-sm btn-notif" onclick="abrirNotif(${p.id})">Notif.</button>
           <button class="btn-sm btn-pdf-s" onclick="gerarPDF(${p.id})">PDF</button>`}
@@ -896,15 +902,37 @@ async function enviarNotificacao() {
 function abrirStatus(id) {
   pedidoAtivo = todosPedidos.find(p=>p.id===id);
   if (!pedidoAtivo) return;
+  if (pedidoAtivo.status === 'enviado') {
+    alert('Este pedido já foi enviado — o status é definitivo e não pode mais ser alterado.');
+    return;
+  }
   document.getElementById('mStatusSub').textContent = (pedidoAtivo.numero_pedido||'#'+id) + ' — ' + pedidoAtivo.loja;
   document.getElementById('mNovoStatus').value = pedidoAtivo.status||'pendente';
+  avisoStatusEnviado();
   document.getElementById('modalStatus').classList.add('show');
+}
+
+function avisoStatusEnviado() {
+  const sel = document.getElementById('mNovoStatus').value;
+  document.getElementById('mAvisoEnviado').style.display = (sel === 'enviado') ? 'block' : 'none';
 }
 
 async function salvarStatus() {
   const novoStatus = document.getElementById('mNovoStatus').value;
+  if (novoStatus === 'enviado') {
+    const ok = confirm('Confirma o envio deste pedido?\n\nIsso vai baixar automaticamente o estoque de Gelato/Pote/Confeitaria na Fábrica, e o status não poderá mais ser alterado depois.');
+    if (!ok) return;
+  }
+  const btn = document.querySelector('#modalStatus .btn-msave');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
   const { error } = await sb.from('pedidos').update({status:novoStatus}).eq('id', pedidoAtivo.id);
-  if (error) { alert('Erro ao mudar status: '+error.message); return; }
+  if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; }
+  if (error) {
+    // Mensagens do gatilho de baixa automática já vêm prontas em português
+    // (estoque insuficiente / item sem sincronização com Precificação).
+    alert(error.message);
+    return;
+  }
   fecharModal('modalStatus');
   await carregarPedidos();
 }
