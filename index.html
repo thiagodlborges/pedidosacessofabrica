@@ -451,7 +451,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
     <div class="modal-title">Editar Itens do Pedido</div>
     <div class="modal-sub" id="mEditSub"></div>
     <div style="background:#fff3cd;border:1px solid #ffe08a;border-radius:8px;padding:10px 12px;font-size:0.76rem;color:#7a5b00;line-height:1.4;margin-bottom:12px">
-      ⚠️ Isso altera o pedido de verdade — a loja vai ver a mudança. Permitido em qualquer status até "Enviado" (depois disso, o estoque já foi baixado e o pedido fica travado).
+      ⚠️ Quantidade e remoção de item mudam <strong>na hora</strong> — a loja já vê a mudança. Trocar o sabor (🔄) abre a sugestão de substituição, que ainda depende da aprovação do master, como já funciona hoje. Permitido em qualquer status até "Enviado".
     </div>
     <div id="mEditItensWrap" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto"></div>
     <div class="modal-actions">
@@ -1050,13 +1050,26 @@ function renderEditItens() {
   if (!itens.length) { wrap.innerHTML = '<div style="font-size:0.85rem;color:var(--text-light)">Nenhum item neste pedido.</div>'; return; }
   wrap.innerHTML = itens.map(i => {
     const nome = (i.observacao||'').replace(/^\[\w+\]\s*/,'');
+    const trocavel = !!i.precificacao_produto_id;
     return `<div class="edit-item-row" data-item-id="${i.id}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #e5ddd0;border-radius:8px">
       <div style="flex:1;font-size:0.85rem">${nome}</div>
       <input type="number" min="0" step="0.001" value="${i.quantidade}" class="edit-item-qtd" style="width:90px;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:0.85rem">
       <span style="font-size:0.75rem;color:var(--text-light);min-width:32px">${i.unidade||''}</span>
+      ${trocavel ? `<button type="button" onclick="abrirTrocaSabor(${pedidoAtivo.id}, ${i.id})" style="background:none;border:none;color:#2D6A4F;cursor:pointer;font-size:0.72rem;font-weight:600;white-space:nowrap" title="Sugerir troca de sabor — precisa de aprovação do master">🔄 Trocar</button>` : ''}
       <button type="button" onclick="this.closest('.edit-item-row').remove()" style="background:none;border:none;color:#B43C3C;cursor:pointer;font-size:1rem" title="Remover item">🗑</button>
     </div>`;
   }).join('');
+}
+
+// Atalho pra sugerir troca de sabor de um item específico, direto da tela de Editar Itens.
+// Continua passando pelo fluxo normal de aprovação do master — só fica mais fácil de acessar.
+async function abrirTrocaSabor(pedidoId, itemId) {
+  fecharModal('modalEditarItens');
+  await abrirNotif(pedidoId);
+  document.getElementById('mTipo').value = 'substituicao';
+  document.getElementById('mItemOrig').value = String(itemId);
+  atualizarQtdOriginal();
+  atualizarCamposModal();
 }
 
 async function salvarEdicaoItens() {
