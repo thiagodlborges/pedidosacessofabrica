@@ -445,6 +445,22 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
   </div>
 </div>
 
+<!-- MODAL EDITAR ITENS -->
+<div class="modal-overlay" id="modalEditarItens">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">Editar Itens do Pedido</div>
+    <div class="modal-sub" id="mEditSub"></div>
+    <div style="background:#fff3cd;border:1px solid #ffe08a;border-radius:8px;padding:10px 12px;font-size:0.76rem;color:#7a5b00;line-height:1.4;margin-bottom:12px">
+      ⚠️ Isso altera o pedido de verdade — a loja vai ver a mudança. Permitido em qualquer status até "Enviado" (depois disso, o estoque já foi baixado e o pedido fica travado).
+    </div>
+    <div id="mEditItensWrap" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <button class="btn-mcancel" onclick="fecharModal('modalEditarItens')">Cancelar</button>
+      <button class="btn-msave" id="btnSalvarEditItens" onclick="salvarEdicaoItens()">Salvar Alterações</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL NOVO USUÁRIO -->
 <div class="modal-overlay" id="modalUsuario">
   <div class="modal">
@@ -811,11 +827,13 @@ function renderPedidos(lista) {
         <div style="font-size:0.8rem;color:var(--text-light)">${(p.itens||[]).length} itens${notifPend?` <span style="color:var(--orange);font-weight:600">· ${notifPend} resp.</span>`:''}</div>
         <div class="card-actions" onclick="event.stopPropagation()">
           ${p.status === 'pendente_aprovacao'
-            ? `<span style="font-size:0.7rem;color:var(--orange);font-style:italic">Aguardando aprovação do gestor</span>`
+            ? `<span style="font-size:0.7rem;color:var(--orange);font-style:italic">Aguardando aprovação do gestor</span>
+          <button class="btn-sm btn-confirmar" style="background:var(--verde,#2D6A4F)" onclick="abrirEditarItens(${p.id})">✏️ Editar Itens</button>`
             : p.status === 'enviado'
             ? `<span style="font-size:0.7rem;color:var(--text-light);font-style:italic">🚚 Enviado — baixa de estoque já feita, status definitivo</span>
           <button class="btn-sm btn-pdf-s" onclick="gerarPDF(${p.id})">PDF</button>`
             : `<button class="btn-sm btn-confirmar" onclick="abrirStatus(${p.id})">Status</button>
+          <button class="btn-sm btn-confirmar" style="background:var(--verde,#2D6A4F)" onclick="abrirEditarItens(${p.id})">✏️ Editar Itens</button>
           <button class="btn-sm btn-notif" onclick="abrirNotif(${p.id})">Notif.</button>
           <button class="btn-sm btn-pdf-s" onclick="gerarPDF(${p.id})">PDF</button>`}
         </div>
@@ -1011,6 +1029,66 @@ function abrirStatus(id) {
 function avisoStatusEnviado() {
   const sel = document.getElementById('mNovoStatus').value;
   document.getElementById('mAvisoEnviado').style.display = (sel === 'enviado') ? 'block' : 'none';
+}
+
+// ── MODAL EDITAR ITENS ────────────────────────────────────
+function abrirEditarItens(id) {
+  pedidoAtivo = todosPedidos.find(p=>p.id===id);
+  if (!pedidoAtivo) return;
+  if (pedidoAtivo.status === 'enviado') {
+    alert('Este pedido já foi enviado — os itens não podem mais ser alterados.');
+    return;
+  }
+  document.getElementById('mEditSub').textContent = (pedidoAtivo.numero_pedido||'#'+id) + ' — ' + pedidoAtivo.loja;
+  renderEditItens();
+  document.getElementById('modalEditarItens').classList.add('show');
+}
+
+function renderEditItens() {
+  const wrap = document.getElementById('mEditItensWrap');
+  const itens = pedidoAtivo.itens || [];
+  if (!itens.length) { wrap.innerHTML = '<div style="font-size:0.85rem;color:var(--text-light)">Nenhum item neste pedido.</div>'; return; }
+  wrap.innerHTML = itens.map(i => {
+    const nome = (i.observacao||'').replace(/^\[\w+\]\s*/,'');
+    return `<div class="edit-item-row" data-item-id="${i.id}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #e5ddd0;border-radius:8px">
+      <div style="flex:1;font-size:0.85rem">${nome}</div>
+      <input type="number" min="0" step="0.001" value="${i.quantidade}" class="edit-item-qtd" style="width:90px;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:0.85rem">
+      <span style="font-size:0.75rem;color:var(--text-light);min-width:32px">${i.unidade||''}</span>
+      <button type="button" onclick="this.closest('.edit-item-row').remove()" style="background:none;border:none;color:#B43C3C;cursor:pointer;font-size:1rem" title="Remover item">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+async function salvarEdicaoItens() {
+  const rows = [...document.querySelectorAll('#mEditItensWrap .edit-item-row')];
+  const itensOriginais = pedidoAtivo.itens || [];
+  const idsPresentes = new Set(rows.map(r => Number(r.dataset.itemId)));
+  const idsRemovidosDaLista = itensOriginais.filter(i => !idsPresentes.has(i.id)).map(i => i.id);
+  const idsZerados = rows.filter(r => (parseFloat(r.querySelector('.edit-item-qtd').value)||0) <= 0).map(r => Number(r.dataset.itemId));
+
+  if (idsZerados.length && !confirm('Um ou mais itens ficaram com quantidade zero ou vazia — eles vão ser removidos do pedido. Confirma?')) return;
+
+  const btn = document.getElementById('btnSalvarEditItens');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+
+  const idsParaRemover = [...idsRemovidosDaLista, ...idsZerados];
+  if (idsParaRemover.length) {
+    const { error } = await sb.from('pedido_itens').delete().in('id', idsParaRemover);
+    if (error) { alert('Erro ao remover itens: '+error.message); btn.disabled=false; btn.textContent='Salvar Alterações'; return; }
+  }
+
+  const atualizacoes = rows
+    .filter(r => !idsZerados.includes(Number(r.dataset.itemId)))
+    .map(r => ({ id: Number(r.dataset.itemId), quantidade: parseFloat(r.querySelector('.edit-item-qtd').value) || 0 }));
+
+  for (const u of atualizacoes) {
+    const { error } = await sb.from('pedido_itens').update({ quantidade: u.quantidade }).eq('id', u.id);
+    if (error) { alert('Erro ao atualizar item: '+error.message); btn.disabled=false; btn.textContent='Salvar Alterações'; return; }
+  }
+
+  btn.disabled = false; btn.textContent = 'Salvar Alterações';
+  fecharModal('modalEditarItens');
+  await carregarPedidos();
 }
 
 async function salvarStatus() {
