@@ -112,6 +112,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
 .b-pendente_aprovacao{background:#FFF8E1;color:#F57F17;border:1px solid #FFE082}.b-aprovado{background:#E8F5E9;color:#2D6A4F}.b-confirmado{background:#E0F2F1;color:#00695C}
 .b-separado{background:#E3F2FD;color:#2B6CB0}.b-enviado{background:#F3E5F5;color:#6A1B9A}
 .b-rejeitado{background:#FFEBEE;color:#C1121F}
+.b-em_logistica,.b-em_transporte{background:#E8EAF6;color:#3949AB}.b-devolvido_logistica{background:#FFF3E0;color:#E65100;border:1px solid #FFCC80}
 .card-actions{display:flex;gap:6px;justify-content:flex-end}
 .btn-sm{padding:5px 10px;border-radius:6px;font-family:"Jost",sans-serif;font-size:0.68rem;
   font-weight:500;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;border:1.5px solid;transition:all 0.15s}
@@ -335,6 +336,8 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
           <option value="aprovado">Aprovado</option>
           <option value="confirmado">Confirmado</option>
           <option value="separado">Em Separação</option>
+          <option value="em_logistica">Na Logística</option>
+          <option value="devolvido_logistica">↩ Devolvido p/ ajuste</option>
           <option value="enviado">Enviado</option>
           <option value="rejeitado">Rejeitado</option>
         </select>
@@ -431,12 +434,13 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
       <option value="aprovado">📋 Aprovado - Ag. Fábrica</option>
       <option value="confirmado">✅ Confirmado</option>
       <option value="separado">📦 Em Separação</option>
-      <option value="enviado">🚚 Enviado</option>
+      <option value="em_logistica">🚚 Enviar para Setor Logístico</option>
+      <option value="devolvido_logistica" disabled>↩ Devolvido pela logística (ajustar e reenviar)</option>
       <option value="rejeitado">❌ Rejeitado</option>
       <option value="cancelado">🚫 Cancelado</option>
     </select>
     <div id="mAvisoEnviado" style="display:none;margin-top:8px;padding:10px 12px;background:#fff3cd;border:1px solid #ffe08a;border-radius:8px;font-size:0.78rem;color:#7a5b00;line-height:1.4">
-      ⚠️ <strong>Enviado é definitivo</strong> — depois de salvar, esse status não pode mais ser alterado. Nesse momento o estoque de Gelato/Pote/Confeitaria da Fábrica é baixado automaticamente. Se faltar estoque ou algum item não estiver sincronizado com a Precificação, o sistema vai bloquear e explicar o motivo.
+      ⚠️ <strong>Ao enviar para a Logística</strong> o pedido deixa de ser editável aqui. O status <em>Enviado</em> (e a baixa de estoque) passa a ser definido pelo módulo de Logística quando a entrega for confirmada. Se a logística encontrar alguma inconsistência, o pedido volta para cá para ajuste.
     </div>
     <div class="modal-actions">
       <button class="btn-mcancel" onclick="fecharModal('modalStatus')">Cancelar</button>
@@ -451,7 +455,7 @@ body{font-family:"Jost",sans-serif;background:var(--creme);color:var(--text);min
     <div class="modal-title">Editar Itens do Pedido</div>
     <div class="modal-sub" id="mEditSub"></div>
     <div style="background:#fff3cd;border:1px solid #ffe08a;border-radius:8px;padding:10px 12px;font-size:0.76rem;color:#7a5b00;line-height:1.4;margin-bottom:12px">
-      ⚠️ Quantidade e remoção de item mudam <strong>na hora</strong> — a loja já vê a mudança. Trocar o sabor (🔄) abre a sugestão de substituição, que ainda depende da aprovação do master, como já funciona hoje. Permitido em qualquer status até "Enviado".
+      ⚠️ Quantidade e remoção de item mudam <strong>na hora</strong> — a loja já vê a mudança. Trocar o sabor (🔄) abre a sugestão de substituição, que ainda depende da aprovação do master, como já funciona hoje. Permitido em qualquer status até "Enviar para Setor Logístico".
     </div>
     <div id="mEditItensWrap" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto"></div>
     <div class="modal-actions">
@@ -810,7 +814,7 @@ function renderPedidos(lista) {
     const urg = urgencia(p.data_entrega_prevista);
     const dataFmt = p.data_entrega_prevista ? new Date(p.data_entrega_prevista+'T12:00:00').toLocaleDateString('pt-BR') : '-';
     const pedidoFmt = p.data_pedido ? new Date(p.data_pedido+'T12:00:00').toLocaleDateString('pt-BR') : '-';
-    const statusLabel = {pendente_aprovacao:'🕐 Ag. Aprovação',pendente:'⏳ Pendente',confirmado:'✅ Confirmado',separado:'📦 Separação',enviado:'🚚 Enviado',rejeitado:'❌ Rejeitado'}[p.status]||p.status;
+    const statusLabel = {pendente_aprovacao:'🕐 Ag. Aprovação',pendente:'⏳ Pendente',confirmado:'✅ Confirmado',separado:'📦 Separação',aprovado:'📋 Aprovado',em_logistica:'🚚 Na Logística',em_transporte:'🚚 Em transporte',devolvido_logistica:'↩ Devolvido p/ ajuste',enviado:'🚚 Enviado',rejeitado:'❌ Rejeitado'}[p.status]||p.status;
     const notifPend = (p.notificacoes||[]).filter(n=>n.status_resposta==='pendente'&&n.de==='loja').length;
 
     return `
@@ -829,10 +833,14 @@ function renderPedidos(lista) {
           ${p.status === 'pendente_aprovacao'
             ? `<span style="font-size:0.7rem;color:var(--orange);font-style:italic">Aguardando aprovação do gestor</span>
           <button class="btn-sm btn-confirmar" style="background:var(--verde,#2D6A4F)" onclick="abrirEditarItens(${p.id})">✏️ Editar Itens</button>`
+            : (p.status === 'em_logistica' || p.status === 'em_transporte')
+            ? `<span style="font-size:0.7rem;color:var(--text-light);font-style:italic">🚚 Na logística — o envio é confirmado pelo módulo logístico</span>
+          <button class="btn-sm btn-pdf-s" onclick="gerarPDF(${p.id})">PDF</button>`
             : p.status === 'enviado'
             ? `<span style="font-size:0.7rem;color:var(--text-light);font-style:italic">🚚 Enviado — baixa de estoque já feita, status definitivo</span>
           <button class="btn-sm btn-pdf-s" onclick="gerarPDF(${p.id})">PDF</button>`
-            : `<button class="btn-sm btn-confirmar" onclick="abrirStatus(${p.id})">Status</button>
+            : `${p.status === 'devolvido_logistica' ? `<span style="font-size:0.7rem;color:#E65100;font-weight:600">↩ Devolvido pela logística: ${String(p.logistica_motivo||'sem motivo informado').replace(/</g,'&lt;')}</span>
+          <button class="btn-sm btn-confirmar" style="background:#3949AB" onclick="reenviarLogistica(${p.id})">🚚 Reenviar p/ Logística</button>` : ''}<button class="btn-sm btn-confirmar" onclick="abrirStatus(${p.id})">Status</button>
           <button class="btn-sm btn-confirmar" style="background:var(--verde,#2D6A4F)" onclick="abrirEditarItens(${p.id})">✏️ Editar Itens</button>
           <button class="btn-sm btn-notif" onclick="abrirNotif(${p.id})">Notif.</button>
           <button class="btn-sm btn-pdf-s" onclick="gerarPDF(${p.id})">PDF</button>`}
@@ -1020,6 +1028,10 @@ function abrirStatus(id) {
     alert('Este pedido já foi enviado — o status é definitivo e não pode mais ser alterado.');
     return;
   }
+  if (pedidoAtivo.status === 'em_logistica' || pedidoAtivo.status === 'em_transporte') {
+    alert('Este pedido está no setor logístico. Se houver inconsistência, a logística pode devolvê-lo para ajuste.');
+    return;
+  }
   document.getElementById('mStatusSub').textContent = (pedidoAtivo.numero_pedido||'#'+id) + ' — ' + pedidoAtivo.loja;
   document.getElementById('mNovoStatus').value = pedidoAtivo.status||'pendente';
   avisoStatusEnviado();
@@ -1028,7 +1040,7 @@ function abrirStatus(id) {
 
 function avisoStatusEnviado() {
   const sel = document.getElementById('mNovoStatus').value;
-  document.getElementById('mAvisoEnviado').style.display = (sel === 'enviado') ? 'block' : 'none';
+  document.getElementById('mAvisoEnviado').style.display = (sel === 'em_logistica') ? 'block' : 'none';
 }
 
 // ── MODAL EDITAR ITENS ────────────────────────────────────
@@ -1037,6 +1049,10 @@ function abrirEditarItens(id) {
   if (!pedidoAtivo) return;
   if (pedidoAtivo.status === 'enviado') {
     alert('Este pedido já foi enviado — os itens não podem mais ser alterados.');
+    return;
+  }
+  if (pedidoAtivo.status === 'em_logistica' || pedidoAtivo.status === 'em_transporte') {
+    alert('Este pedido está no setor logístico — os itens só podem ser alterados se a logística o devolver.');
     return;
   }
   document.getElementById('mEditSub').textContent = (pedidoAtivo.numero_pedido||'#'+id) + ' — ' + pedidoAtivo.loja;
@@ -1104,10 +1120,19 @@ async function salvarEdicaoItens() {
   await carregarPedidos();
 }
 
+async function reenviarLogistica(id) {
+  const p = todosPedidos.find(x=>x.id===id);
+  if (!p || !confirm('Reenviar o pedido '+(p.numero_pedido||'#'+id)+' para o setor logístico? Confira se os itens já foram ajustados.')) return;
+  const { error } = await sb.from('pedidos').update({status:'em_logistica'}).eq('id', id);
+  if (error) { alert(error.message); return; }
+  await carregarPedidos();
+}
+
 async function salvarStatus() {
   const novoStatus = document.getElementById('mNovoStatus').value;
-  if (novoStatus === 'enviado') {
-    const ok = confirm('Confirma o envio deste pedido?\n\nIsso vai baixar automaticamente o estoque de Gelato/Pote/Confeitaria na Fábrica, e o status não poderá mais ser alterado depois.');
+  if (novoStatus === 'devolvido_logistica') { alert('Este status só é definido pela logística.'); return; }
+  if (novoStatus === 'em_logistica') {
+    const ok = confirm('Enviar este pedido para o setor logístico?\n\nEle deixa de ser editável aqui. O status "Enviado" e a baixa de estoque serão feitos pela logística quando a entrega for confirmada.');
     if (!ok) return;
   }
   const btn = document.querySelector('#modalStatus .btn-msave');
